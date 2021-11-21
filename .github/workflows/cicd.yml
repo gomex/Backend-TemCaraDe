@@ -1,0 +1,87 @@
+name: "Terraform"
+
+on:
+  push:
+    branches:
+      - "add_iac"
+  pull_request:
+
+jobs:
+  terraform:
+    name: "Unit Tests"
+    runs-on: ubuntu-18.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.0
+
+      - name: Terraform Format
+        id: fmt
+        run: terraform fmt -check
+        working-directory: ./iac
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+        working-directory: ./iac
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+        working-directory: ./iac
+
+      - name: Validação do tfsec
+        id: tfsec
+        run: |
+          docker run --rm -v $PWD:/app -w /app tfsec/tfsec . 
+        working-directory: ./iac
+  
+  deploy-staging:
+    name: "Deploy para staging"
+    runs-on: ubuntu-18.04
+    if: ${{ github.event_name == 'push' }}
+    env:
+      HEROKU_EMAIL:  ${{ secrets.HEROKU_EMAIL }}
+      HEROKU_API_KEY:  ${{ secrets.HEROKU_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.0
+          terraform_wrapper: false
+          
+      - name: Terraform Format
+        id: fmt
+        working-directory: ./iac
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        working-directory: ./iac
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        working-directory: ./iac
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        id: plan
+        working-directory: ./iac
+        run: terraform plan -no-color
+
+      - name: Terraform - applying in test organization
+        id: apply        
+        working-directory: ./iac
+        run: terraform apply -auto-approve -no-color
