@@ -81,7 +81,7 @@ jobs:
         working-directory: ./iac
         run: terraform plan -no-color
 
-      - name: Terraform - applying in test organization
+      - name: Terraform - applying in staging organization
         id: apply        
         working-directory: ./iac
         run: terraform apply -auto-approve -no-color
